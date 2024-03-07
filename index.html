@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Tetris</title>
+        <style>
+            * {
+                font-family:'Courier New', Courier, monospace;
+                user-select: none;
+            }
+            canvas {
+                padding-left: 30%;
+            }
+            h1 {
+                padding-left: 30%;
+            }
+            #button {
+                width: fit-content;
+                padding: 5px;
+                margin-left: 30%;
+                transition-duration: .3s;
+            }
+            #button:hover {
+                background-color: white;
+                border: 5px outset black;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <canvas width="300" height="600" id="canvas"></canvas>
+        <h1 id="score"></h2>
+        <h2 id="button" onclick="game.init();">Restart</h2>
+
+        <script>
+
+            var game = {
+
+                colors: ["Blue", "Red", "Green", "Purple", "Gold", "Cyan"],
+                width: 10,
+                height: 20,
+                ctx: document.getElementById("canvas").getContext("2d"),
+                scoreSign: document.getElementById("score"),
+
+                speed: 0,
+                score: 0,
+
+                createBlock: function() {
+                    // Creates a new block to be dropped down
+                    game.blockY = 0;
+                    game.blockX = Math.floor(game.width / 2) - 1;
+                    game.blockColor = game.colors[Math.floor(Math.random() * game.colors.length) + 0];
+                    game.block = game.getNewShape();
+                    // Check if it is already colliding with something in game.matrix
+                    points = [];
+                    game.block.forEach(point => {
+                        points.push([point[0] + game.blockX, point[1] + game.blockY]);
+                    });
+                    var collision = false;
+                    for(var y = 0; y < game.matrix.length; y++) {
+                        for(var x = 0; x < game.matrix[0].length; x++) {
+                            points.forEach(point => {
+                                if(point[0] == x && point[1] == y && game.matrix[y][x] != null) {
+                                    collision = true;
+                                }
+                            });
+                        }
+                    }
+                    if(collision) {
+                        game.lost = true;
+                    }
+                },
+
+                createMatrix: function() {
+                    this.matrix = [];
+                    var row = null;
+                    for(var y = 0; y < this.height; y++) {
+                        row = [];
+                        for(var x = 0; x < this.width; x++) {
+                            row.push(null);
+                        }
+                        this.matrix.push(row);
+                    }
+                },
+
+                getNewShape: function() {
+                    var shapeCode = Math.floor(Math.random() * 6) + 0;
+                    if(shapeCode == 0) {
+                        // 2 by 2 block
+                        var shape = [[0, 0], [0, 1], [1, 0], [1, 1]];
+                    } else if(shapeCode == 1) {
+                        // 1 by 4 long piece
+                        var shape = [[0, 0], [0, -1], [0, -2], [0, 1]];
+                    } else if(shapeCode == 2) {
+                        // L-shaped piece
+                        var shape = [[0, 0], [-1, 0], [1, 0], [1, -1]];
+                    } else if(shapeCode == 3) {
+                        // Mirrored L piece
+                        var shape = [[0, 0], [-1, 0], [1, 0], [1, 1]];
+                    } else if(shapeCode == 4) {
+                        // T-shaped piece
+                        var shape = [[0, 0], [-1, 0], [1, 0], [0, 1]];
+                    } else {
+                        // Weird zig-zag piece
+                        var shape = [[0, 0], [-1, 0], [1, -1], [0, -1]];
+                    }
+                    return shape;
+                },
+
+                draw: function() {
+                    var color = null;
+                    var count = 0;
+                    // Draw the matrix
+                    for(var y = 0; y < this.height; y++) {
+                        for(var x = 0; x < this.width; x++) {
+                            count++;
+                            color = this.matrix[y][x]
+                            if(color == null) {
+                                this.ctx.fillStyle = count % 2 == 0 ? "DarkBlue" : "Navy";
+                            } else {
+                                this.ctx.fillStyle = color;
+                            }
+                            this.ctx.fillRect(x * 30, y * 30, 30, 30);
+                        }
+                        count++;
+                    }
+                    // Draw the block falling down
+                    this.ctx.fillStyle = this.blockColor;
+                    var x = 0;
+                    var y = 0;
+                    this.block.forEach(i => {
+                        x = i[0];
+                        y = i[1];
+                        x += this.blockX;
+                        y += this.blockY;
+                        this.ctx.fillRect(x * 30, y * 30, 30, 30);
+                    });
+                    // Draw the score
+                    this.scoreSign.innerHTML = "Score: " + this.score;
+                },
+
+                receiveEvent: function(keyPressed) {
+                    var key = keyPressed.key.toLowerCase();
+                    if(key == "a") {
+                        game.sideStep(-1);
+                    } else if(key == "d") {
+                        game.sideStep(1);
+                    } else if(key == "w") {
+                        game.fullDrop();
+                    } else if(key == "s") {
+                        game.rotateBlock();
+                    }
+                },
+
+                sideStep: function(increment) {
+                    game.blockX += increment;
+                    // Check if the new position would be colliding with anything in game.matrix
+                    var points = [];
+                    game.block.forEach(point => {
+                        points.push([point[0] + game.blockX, point[1] + game.blockY]);
+                    });
+                    var collision = false;
+                    for(var y = 0; y < game.matrix.length; y++) {
+                        for(var x = 0; x < game.matrix[0].length; x++) {
+                            points.forEach(point => {
+                                if(point[0] == x && point[1] == y && game.matrix[y][x] != null) {
+                                    collision = true;
+                                }
+                            });
+                        }
+                    }
+                    // Check if it is falling off the edge
+                    points.forEach(point => {
+                        if(point[0] < 0 || point[0] >= game.width) {
+                            collision = true;
+                        }
+                    });
+                    if(collision) {
+                        game.blockX -= increment;
+                    }
+                },
+
+                rotateBlock: function() {
+                    // Rotate the falling block 90 degrees clockwise
+                    // x, y = -y, x
+                    var newShape = [];
+                    game.block.forEach(i => {
+                        newShape.push([i[0], i[1]]);
+                    });
+                    // Rotate
+                    for(var i = 0; i < 4; i++) {
+                        var x = newShape[i][0];
+                        var y = newShape[i][1];
+                        newShape[i][0] = -y;
+                        newShape[i][1] = x;
+                    }
+                    // Check if the new shape would be colliding with anything in game.matrix
+                    var collision = false;
+                    for(var y = 0; y < game.matrix.length; y++) {
+                        for(var x = 0; x < game.matrix[0].length; x++) {
+                            newShape.forEach(point => {
+                                if(point[0] + game.blockX == x && 
+                                point[1] + game.blockY == y && 
+                                game.matrix[y][x] != null) {
+                                    collision = true;
+                                }
+                            });
+                        }
+                    }
+                    // Check if the new shape is falling off the edge
+                    newShape.forEach(point => {
+                        if(point[0] + game.blockX < 0 || 
+                        point[0] + game.blockX >= game.width || 
+                        point[1] + game.blockY >= game.height) {
+                            collision = true;
+                        }
+                    });
+                    if(!collision) {
+                        game.block = newShape;
+                    }
+                },
+
+                fullDrop: function() {
+                    // Drop the block all the way down until it hits something
+                    var collision = game.dropBlock(true);
+                    if(!collision) {
+                        game.fullDrop();
+                    }
+                },
+
+                dropBlock: function(fullDropping=false) {
+                    var hitSomething = false;
+                    game.blockY++;
+                    // Check if the block fell to the bottom
+                    var peakY = 0;
+                    var y = 0;
+                    game.block.forEach(i => {
+                        y = i[1] + game.blockY;
+                        if(y > peakY) {
+                            peakY = y;
+                        }
+                    });
+
+                    // Check if the block is colliding with something
+                    var collision = false;
+                    if(peakY >= game.height) {
+                        collision = true;
+                    } else {
+                        // Find all points in the falling-down shape
+                        var points = [];
+                        game.block.forEach(i => {
+                            points.push([i[0] + game.blockX, i[1] + game.blockY]);
+                        });
+                        // Check if they are colliding with any other blocks in game.matrix
+                        for(var y = 0; y < game.matrix.length; y++) {
+                            for(var x = 0; x < game.matrix[0].length; x++) {
+                                points.forEach(point => {
+                                    if(point[0] == x && point[1] == y && game.matrix[y][x] != null) {
+                                        collision = true;
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                    if(collision) {
+                        var hitSomething = true;
+                        // Move the block up, stamp it, and make a new one
+                        game.blockY--;
+                        game.block.forEach(i => {
+                            game.matrix[i[1] + game.blockY][i[0] + game.blockX] = game.blockColor;
+                        });
+                        game.createBlock();
+                    }
+                    if(!fullDropping) {
+                        game.speed -= 1; // Make it faster
+                        window.setTimeout(game.dropBlock, game.speed);
+                    }
+                    return hitSomething;
+                },
+
+                completeRows: function() {
+                    // Clears all the complete rows and drops the ones on top of them
+                    for(var i = 0; i < game.matrix.length; i++) {
+                        var row = game.matrix[i];
+                        var complete = true;
+                        row.forEach(color => {
+                            if(color == null) {
+                                complete = false;
+                            }
+                        });
+                        if(complete) {
+                            game.matrix[i] = [null, null, null, null, null, null, null, null, null, null];
+                            // Create a list of the indexs of the rows before the row that just got erased
+                            var indexs = [];
+                            for(var index = 0; index < i; index++) {
+                                indexs.unshift(index);
+                            }
+                            // Move the rows down in order of the indexs
+                            indexs.forEach(index => {
+                                var colors = []
+                                game.matrix[index].forEach(color => {
+                                    colors.push(color);
+                                });
+                                game.matrix[index + 1] = [];
+                                for(var x = 0; x < game.width; x++) {
+                                    game.matrix[index + 1].push(colors[x]);
+                                }
+                            });
+                            game.matrix[0] = [null, null, null, null, null, null, null, null, null, null];
+
+                            game.score += 20 * game.width;
+                        }
+                    }
+                },
+
+                init: function() {
+                    game.score = 0;
+                    game.speed = 1000;
+                    game.lost = false;
+                    game.createMatrix();
+                    game.createBlock();
+                    game.tick();
+                    window.setTimeout(game.dropBlock, game.speed);
+                },
+                
+                tick: function() {
+                    game.draw();
+                    game.completeRows();
+                    if(!game.lost) {
+                        window.setTimeout(game.tick, 0.1);
+                    }
+                }
+            }
+            
+            window.addEventListener("keypress", game.receiveEvent, false);
+            game.init();
+
+        </script>
+    </body>
+</html>
